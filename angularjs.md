@@ -7,6 +7,7 @@ This guide was created for developers at Crowdsurge to provide consistency throu
 
 ## Table of Contents
 
+* [General Guidelines](#general-guidelines)
 * [IIFE Scoping](#iife-scoping)
 * [Modules](#modules)
 * [Controllers](#controllers)
@@ -16,6 +17,24 @@ This guide was created for developers at Crowdsurge to provide consistency throu
 * [Publish and subscribe events](#publish-and-subscribe-events)
 * [Performance](#peformance)
 * [Exception Handling](#exception-handling)
+* [E2E Testing](#e2e-testing)
+
+## General Guidelines
+
+* Skinny controllers
+    * Controllers should contain only the bare minimum code, generally use them just for connecting the `$scope` to any needed service methods and for maintaining the state of the view.
+* No business logic in controllers
+    * Move that into a service, its easier to test services than it is controllers.
+* No $http calls in controllers
+* Always use singletons for services
+* Only interact with the DOM via directives
+* Use `$watch()` sparingly
+    * When you have to use it, make sure the expression and the action are simple functions that evaluate quickly.
+* Use `$emit`, `$broadcast` `$on` to communicate between components
+* One component per file
+* One unit test file per component
+* Avoid JQuery - its fat and often unnecessary
+* Stay DRY :)
 
 ## IIFE Scoping
 To avoid polluting the global scope with our function declarations that get passed into Angular, ensure build tasks wrap the concatenated files inside an **Immediately-Invoked Function Expression**
@@ -919,8 +938,62 @@ $rootScope.$on('$routeChangeError',
 );
 ```
 
+## E2E Testing
 
-###### References
-// TODO
+An end to end test tests the behaviour of an application from start to finish and is un aware of the implementation.
+
+##### Structuring tests
+
+- Name the test file to describe the module and the actions under test, and store in a folder of e2e tests i.e. tests/e2e/cart-updatingQuantity.spec.js
+
+- Use [PageObjects](https://github.com/angular/protractor/blob/master/docs/page-objects.md) to encapsulate element location and create helper functions relevant to the page. i.e. page.emailInput.sendInput('my@email.com')
 
 
+
+```js
+'use strict';
+
+// A Page Object: pageObjects/some-page.js
+module.exports = function () {
+    this.emailInput = element(by.model('state.email'));
+    this.submitButton = element(by.dataRef('submit-button'));
+
+    this.get = function (host) {
+        browser.get((host || 'http://localhost:3333') + '/#/1097/');
+    };
+};
+
+
+// Usage: e2e/module-scenarioUnderTest.spec.js
+var page, SomePage = require('../pageObjects/some-page.js');
+
+beforeEach(function () {
+    page = new SomePage();
+    page.get();
+});
+
+```
+
+
+##### Locating elements
+
+Protractor provides several methods for locating an element in a document, detailed in depth in the [Protractor API ReadMe](https://github.com/angular/protractor/blob/master/docs/api.md#elementfinder)
+
+By using a standard locator or a [chain of locators](https://github.com/angular/protractor/blob/master/docs/api.md#elementfinderprototypeelement) it should be possible to find most elements.
+
+Do not use by.id() - elements in modern single page apps should not use the id attribute as it should be unique throughout the document.
+
+In situations were an element can not be found using standard methods, additional locator methods can be defined in the onPrepare() method of the protractor config. The following example defines `by.dataRef()` which finds elements by the data-ref attribute.
+
+```js
+onPrepare: function () {
+    by.addLocator('dataRef', function (target, value) {
+        var selector = '[data-ref="' + value + '"]',
+            elements = (target || document).querySelectorAll(selector);
+
+        if (elements.length) {
+            return elements;
+        }
+    });
+}
+```
